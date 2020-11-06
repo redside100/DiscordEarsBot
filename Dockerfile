@@ -15,7 +15,7 @@ RUN apt -y install nodejs
 
 # COPY settings.json /var/www/DiscordEarsBot/settings.json
 COPY . /var/www/DiscordEarsBot
-
+RUN rm -rf node_modules
 RUN npm install
 
 CMD ["npm", "start"]
