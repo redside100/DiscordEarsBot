@@ -129,8 +129,10 @@ const _CMD_JOIN        = PREFIX + 'join';
 const _CMD_LEAVE       = PREFIX + 'leave';
 const _CMD_DEBUG       = PREFIX + 'debug';
 const _CMD_TEST        = PREFIX + 'hello';
+const _CMD_LOG         = PREFIX + 'log';
 
 const guildMap = new Map();
+const logMap = new Map();
 const userHistoryMap = new Map();
 
 discordClient.on('message', async (msg) => {
@@ -138,38 +140,62 @@ discordClient.on('message', async (msg) => {
         if (!('guild' in msg) || !msg.guild) return; // prevent private messages to bot
         const mapKey = msg.guild.id;
         if (msg.content.trim().toLowerCase() == _CMD_JOIN) {
-            if (!msg.member.voice.channelID) {
-                msg.reply('Error: please join a voice channel first.')
+            if (msg.member.hasPermission('MOVE_MEMBERS')) {
+                if (!msg.member.voice.channelID) {
+                    msg.reply('Error: please join a voice channel first.')
+                } else {
+                    if (!guildMap.has(mapKey))
+                        await connect(msg, mapKey)
+                    else
+                        msg.reply('Already connected')
+                }
             } else {
-                if (!guildMap.has(mapKey))
-                    await connect(msg, mapKey)
-                else
-                    msg.reply('Already connected')
+                msg.reply('Sorry, you need the `MOVE_MEMBERS` permission to do this')
             }
         } else if (msg.content.trim().toLowerCase() == _CMD_LEAVE) {
-            if (guildMap.has(mapKey)) {
-                let val = guildMap.get(mapKey);
-                if (val.voice_Channel) val.voice_Channel.leave()
-                if (val.voice_Connection) val.voice_Connection.disconnect()
-                if (val.musicYTStream) val.musicYTStream.destroy()
+            if (msg.member.hasPermission('MOVE_MEMBERS')) {
+                if (guildMap.has(mapKey)) {
+                    let val = guildMap.get(mapKey);
+                    if (val.voice_Channel) val.voice_Channel.leave()
+                    if (val.voice_Connection) val.voice_Connection.disconnect()
+                    if (val.musicYTStream) val.musicYTStream.destroy()
                     guildMap.delete(mapKey)
-                msg.reply("Disconnected.")
+                    msg.reply("Disconnected.")
+                } else {
+                    msg.reply("Cannot leave because not connected.")
+                }
             } else {
-                msg.reply("Cannot leave because not connected.")
+                msg.reply('Sorry, you need the `MOVE_MEMBERS` permission to do this')
             }
+
         } else if (msg.content.trim().toLowerCase() == _CMD_HELP) {
             msg.reply(getHelpString());
         }
         else if (msg.content.trim().toLowerCase() == _CMD_DEBUG) {
-            console.log('toggling debug mode')
-            let val = guildMap.get(mapKey);
-            if (val.debug)
-                val.debug = false;
-            else
-                val.debug = true;
+            if (msg.member.hasPermission('MOVE_MEMBERS')) {
+                console.log('toggling debug mode')
+                let val = guildMap.get(mapKey);
+                if (val.debug)
+                    val.debug = false;
+                else
+                    val.debug = true;
+            } else {
+                msg.reply('Sorry, you need the `MOVE_MEMBERS` permission to do this')
+            }
         }
         else if (msg.content.trim().toLowerCase() == _CMD_TEST) {
             msg.reply('hello back =)')
+        }
+        else if (msg.content.trim().toLowerCase() == _CMD_LOG) {
+            if (msg.member.hasPermission('ADMINISTRATOR')) {
+                if (!logMap[msg.guild.id])
+                    logMap[msg.guild.id] = false;
+
+                logMap[msg.guild.id] = !logMap[msg.guild.id];
+                msg.reply(`Log full message transcription on detection: **${logMap[msg.guild.id]}**`)
+            } else {
+                msg.reply('Sorry, you need the `ADMINISTRATOR` permission to do this')
+            }
         }
     } catch (e) {
         console.log('discordClient message: ' + e)
@@ -180,8 +206,9 @@ discordClient.on('message', async (msg) => {
 function getHelpString() {
     let out = '**COMMANDS:**\n'
         out += '```'
-        out += PREFIX + 'join\n';
-        out += PREFIX + 'leave\n';
+        out += PREFIX + 'join - Joins the voice channel\n';
+        out += PREFIX + 'leave - Leaves the voice channel\n';
+        out += PREFIX + 'log - Toggles whether the bot should log full message transcriptions when detecting\n'
         out += '```'
     return out;
 }
@@ -312,22 +339,24 @@ function process_commands_query(txt, mapKey, user) {
         if (im_regex.test(txt)) {
             const word_list = txt.split(" ");
             const match = word_list[word_list.indexOf("im") + 1];
+            const log_txt = logMap[mapKey] ? txt : '||Full transcription logging is disabled||';
             const embed_info = new Discord.MessageEmbed()
                 .setColor('#0099ff')
                 .setTitle(':speech_left:  Detected')
-                .setDescription(`<@${user.id}>: ${txt}`)
+                .setDescription(`<@${user.id}>: ${log_txt}`)
                 .addField('Matching', match, true)
                 .setTimestamp()
             val.text_Channel.send(embed_info);
             userHistoryMap[user.id] = [match, Date.now()];
         } else if (i_am_regex.test(txt)) {
+            const log_txt = logMap[mapKey] ? txt : '||Full transcription logging is disabled||';
             const modified_txt = txt.substring(txt.indexOf("i am"), txt.length);
             const word_list = modified_txt.split(" ");
             const match = word_list[word_list.indexOf("am") + 1];
             const embed_info = new Discord.MessageEmbed()
                 .setColor('#0099ff')
                 .setTitle(':speech_left:  Detected')
-                .setDescription(`<@${user.id}>: ${txt}`)
+                .setDescription(`<@${user.id}>: ${log_txt}`)
                 .addField('Matching', match, true)
                 .setTimestamp()
             val.text_Channel.send(embed_info);
