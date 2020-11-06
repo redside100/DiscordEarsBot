@@ -1,6 +1,10 @@
 # DiscordEarsBot
-A speech-to-text bot for Discord written in NodeJS.
-Can be useful for hearing impaired and deaf people.
+Originally a speech-to-text bot for Discord written in NodeJS.
+Repurposed in a very short amount of time to detect and punish people who make dad jokes.
+
+## Pain
+sitting in a voice channel with 8 people for 3 hours
+![pain](./pain.png?raw=true "pain")
 
 ## Demo:
 
